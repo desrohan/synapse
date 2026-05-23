@@ -1,0 +1,3 @@
+{
+  "extends": "@synapse/config/tsconfig.base.json"
+}
