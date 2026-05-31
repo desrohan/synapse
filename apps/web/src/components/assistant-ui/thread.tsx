@@ -254,6 +254,16 @@ const AssistantMessage: FC = () => {
           }}
         </MessagePrimitive.GroupedParts>
         <MessageError />
+        {isRunning && !isEmpty && (
+          <div className="mt-3 flex items-center gap-2 px-1 py-2">
+            <div className="flex gap-1">
+              <span className="size-1.5 animate-pulse rounded-full bg-foreground/50 [animation-delay:0ms]" />
+              <span className="size-1.5 animate-pulse rounded-full bg-foreground/50 [animation-delay:150ms]" />
+              <span className="size-1.5 animate-pulse rounded-full bg-foreground/50 [animation-delay:300ms]" />
+            </div>
+            <span className="text-xs text-muted-foreground">Working on it…</span>
+          </div>
+        )}
       </div>
 
       <div
