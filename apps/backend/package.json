@@ -8,14 +8,18 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.79",
     "@google/genai": "^2.6.0",
     "@modelcontextprotocol/sdk": "latest",
+    "@supabase/supabase-js": "^2.106.1",
     "@trigger.dev/sdk": "^4.4.6",
+    "ai": "^6.0.191",
     "bullmq": "^5.7.8",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.4.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -4,26 +4,28 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 export class MCPManager {
   private clients: Map<string, Client> = new Map();
 
-  async connectStdioServer(name: string, command: string, args: string[], env?: Record<string, string>) {
+  async connectStdioServer(name: string, command: string, args: string[], env?: Record<string, string | undefined>) {
     const transport = new StdioClientTransport({
       command,
       args,
-      env: env || process.env,
+      env: env ? { ...process.env, ...env } as Record<string, string> : process.env as Record<string, string>,
     });
 
     const client = new Client({
       name: `synapse-${name}-client`,
       version: '1.0.0',
     }, {
-      capabilities: {
-        tools: {}
-      }
+      capabilities: {}
     });
 
     await client.connect(transport);
     this.clients.set(name, client);
     console.log(`Connected to MCP server: ${name}`);
     return client;
+  }
+
+  getAllClientNames(): string[] {
+    return Array.from(this.clients.keys());
   }
 
   getClient(name: string) {

@@ -1,0 +1,59 @@
+{
+  "name": "@nexus2520/jira-mcp-server",
+  "version": "1.2.0",
+  "description": "MCP server for Jira API integration - supports Jira Cloud",
+  "type": "module",
+  "main": "./build/index.js",
+  "bin": {
+    "jira-mcp-server": "build/index.js"
+  },
+  "files": [
+    "build/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm run build"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "keywords": [
+    "mcp",
+    "jira",
+    "api",
+    "model-context-protocol",
+    "jira-cloud",
+    "issue-tracking",
+    "atlassian"
+  ],
+  "author": "Parth Dogra",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pdogra1299/jira-mcp-server.git"
+  },
+  "homepage": "https://github.com/pdogra1299/jira-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/pdogra1299/jira-mcp-server/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "axios": "^1.10.0",
+    "form-data": "^4.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.6"
+  }
+}

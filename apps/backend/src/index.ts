@@ -7,30 +7,24 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3002;
 
-import { webhookQueue } from './queues/webhooks';
-
 app.use(cors());
 app.use(express.json());
+
+import integrationsRouter from './routes/integrations.js';
+import webhooksRouter from './routes/webhooks.js';
+import chatRouter from './routes/chat.js';
+
+app.use('/api/integrations', integrationsRouter);
+app.use('/api/webhooks', webhooksRouter);
+app.use('/api/chat', chatRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'synapse-backend' });
 });
 
-app.post('/api/webhooks/:source', async (req, res) => {
-  const { source } = req.params;
-  const payload = req.body;
-  const event_type = req.headers['x-event-type'] || 'unknown';
+import { bootstrapMCPServers } from './mcp/bootstrap.js';
 
-  await webhookQueue.add('process-event', {
-    source,
-    event_type,
-    payload,
-    timestamp: new Date().toISOString()
-  });
-
-  res.status(202).json({ status: 'queued' });
-});
-
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Synapse backend listening on port ${port}`);
+  await bootstrapMCPServers();
 });
