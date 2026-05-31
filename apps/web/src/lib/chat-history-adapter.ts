@@ -27,7 +27,7 @@ export function createSupabaseHistoryAdapter(
       }
     },
 
-    async append(item) {
+    async append(item: any) {
       try {
         await fetch(`${baseUrl}/messages`, {
           method: "POST",
@@ -46,7 +46,7 @@ export function createSupabaseHistoryAdapter(
       }
     },
 
-    withFormat(formatAdapter) {
+    withFormat(formatAdapter: any) {
       return {
         async load() {
           try {
@@ -70,7 +70,7 @@ export function createSupabaseHistoryAdapter(
           }
         },
 
-        async append(item) {
+        async append(item: any) {
           try {
             const encoded = formatAdapter.encode(item);
             const id = formatAdapter.getId(item.message);
@@ -91,7 +91,7 @@ export function createSupabaseHistoryAdapter(
           }
         },
 
-        async update(item, localMessageId) {
+        async update(item: any, localMessageId: string) {
           try {
             const encoded = formatAdapter.encode(item);
             const id = formatAdapter.getId(item.message);
