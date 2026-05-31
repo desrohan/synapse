@@ -498,8 +498,8 @@ function Dashboard({ userId }: { userId: string }) {
         open={!!selectedReport}
         onOpenChange={(open) => !open && setSelectedReport(null)}
       >
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader className="mb-4">
+        <SheetContent className="w-full sm:max-w-lg flex flex-col">
+          <SheetHeader>
             <SheetTitle className="font-serif">
               {selectedReport?.title}
             </SheetTitle>
@@ -518,9 +518,11 @@ function Dashboard({ userId }: { userId: string }) {
               </span>
             </div>
           </SheetHeader>
-          {selectedReport?.data && (
-            <ReportView data={selectedReport.data} />
-          )}
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
+            {selectedReport?.data && (
+              <ReportView data={selectedReport.data} />
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>
