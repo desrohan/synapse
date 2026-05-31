@@ -248,7 +248,7 @@ router.get('/jira/callback', async (req, res) => {
         JIRA_ACCESS_TOKEN: accessToken,
         JIRA_REFRESH_TOKEN: refreshToken,
         JIRA_CLOUD_ID: cloudId,
-        JIRA_USER_ID: userId
+        JIRA_USER_ID: userId as string
       }
     );
 

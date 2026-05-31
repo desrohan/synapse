@@ -18,7 +18,7 @@ export interface GraphEdge {
   source_external_id: string;
   target_external_id: string;
   relation_type: string;
-  properties: Record<string, any>;
+  properties?: Record<string, any>;
 }
 
 export interface GraphPayload {

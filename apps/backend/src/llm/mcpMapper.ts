@@ -28,7 +28,7 @@ function jsonSchemaToZod(prop: any): z.ZodTypeAny {
         }
         return prop.description ? z.object(shape).describe(prop.description) : z.object(shape);
       }
-      return prop.description ? z.record(z.unknown()).describe(prop.description) : z.record(z.unknown());
+      return prop.description ? z.record(z.string(), z.unknown()).describe(prop.description) : z.record(z.string(), z.unknown());
     default:
       return z.unknown();
   }

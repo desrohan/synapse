@@ -46,6 +46,15 @@ export class MCPManager {
       arguments: args
     });
   }
+
+  async disconnectServer(name: string) {
+    const client = this.clients.get(name);
+    if (client) {
+      await client.close();
+      this.clients.delete(name);
+      console.log(`Disconnected MCP server: ${name}`);
+    }
+  }
 }
 
 export const mcpManager = new MCPManager();

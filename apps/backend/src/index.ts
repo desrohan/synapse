@@ -8,7 +8,12 @@ const app = express();
 const port = process.env.PORT || 3002;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    // Preserve raw body for webhook signature verification
+    req.rawBody = buf;
+  }
+}));
 
 import integrationsRouter from './routes/integrations.js';
 import webhooksRouter from './routes/webhooks.js';

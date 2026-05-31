@@ -63,13 +63,13 @@ export function createUserTools(userId: string) {
         nodes: z.array(z.object({
           type: z.string().describe('Type of the node, e.g. Person, Ticket, Message, Project'),
           external_id: z.string().describe('A unique logical identifier for this entity'),
-          properties: z.record(z.unknown()).describe('Attributes to remember'),
+          properties: z.record(z.string(), z.unknown()).describe('Attributes to remember'),
         })),
         edges: z.array(z.object({
           source_external_id: z.string(),
           target_external_id: z.string(),
           relation_type: z.string().describe('e.g., BLOCKED_BY, WORKS_ON'),
-          properties: z.record(z.unknown()).optional(),
+          properties: z.record(z.string(), z.any()).optional(),
         })),
       })),
       execute: async (payload) => {
