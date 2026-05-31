@@ -82,5 +82,36 @@ export function createUserTools(userId: string) {
         }
       },
     }),
+
+    generateReport: tool({
+      description: `Generate a structured workspace report/brief. Use this tool WHENEVER you have gathered workspace data (from Slack, Jira, or GitHub) and need to present it to the user. Instead of writing markdown directly, call this tool with structured data and it will render a beautiful report UI.
+
+Call this tool AFTER you have fetched all data from other tools. Pass the data organized into sections.`,
+      inputSchema: zodSchema(z.object({
+        title: z.string().describe('Report title, e.g. "Daily Brief", "Slack Update", "Sprint Summary"'),
+        subtitle: z.string().optional().describe('Subtitle or date range, e.g. "Last 24 hours · May 31, 2026"'),
+        actionItems: z.array(z.object({
+          title: z.string().describe('Short headline of the action item (5-10 words)'),
+          description: z.string().describe('1-2 sentence summary of what needs to be done'),
+          source: z.string().describe('Where this came from: "slack", "jira", or "github"'),
+          permalink: z.string().optional().describe('Link to the original message/issue'),
+        })).optional().describe('Items requiring the user\'s action — mentions, requests, reviews'),
+        updates: z.array(z.object({
+          title: z.string().describe('Short headline summarizing the update (5-10 words)'),
+          description: z.string().describe('1-2 sentence summary'),
+          source: z.string().describe('"slack", "jira", or "github"'),
+          permalink: z.string().optional().describe('Link to the original'),
+        })).optional().describe('Key updates, announcements, status changes — FYI items'),
+        channelSummaries: z.array(z.object({
+          name: z.string().describe('Channel name'),
+          messageCount: z.number().optional().describe('Number of messages'),
+          summary: z.string().describe('Brief summary of activity in this channel'),
+        })).optional().describe('Per-channel activity summaries'),
+      })),
+      execute: async (data) => {
+        // Pass-through — the frontend renders this via a custom tool UI
+        return data;
+      },
+    }),
   };
 }

@@ -7,6 +7,7 @@ import { Brain } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Thread } from "@/components/assistant-ui/thread";
 import { JiraSearchToolUI, JiraIssueToolUI, SlackSearchToolUI, SlackHistoryToolUI, GitHubIssuesToolUI } from "@/components/assistant-ui/tool-uis";
+import { ReportToolUI } from "@/components/assistant-ui/report";
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -79,6 +80,7 @@ export default function Home() {
       <SlackSearchToolUI />
       <SlackHistoryToolUI />
       <GitHubIssuesToolUI />
+      <ReportToolUI />
 
       <div className="flex-1 h-full overflow-hidden">
         <Thread />

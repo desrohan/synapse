@@ -84,7 +84,7 @@ const defaultComponents = memoizeMarkdownComponents({
   h2: ({ className, ...props }) => (
     <h2
       className={cn(
-        "aui-md-h2 mt-3 mb-1.5 scroll-m-20 font-semibold text-sm first:mt-0 last:mb-0",
+        "aui-md-h2 mt-6 mb-3 scroll-m-20 text-lg font-semibold tracking-tight first:mt-0 last:mb-0",
         className,
       )}
       {...props}
@@ -93,7 +93,7 @@ const defaultComponents = memoizeMarkdownComponents({
   h3: ({ className, ...props }) => (
     <h3
       className={cn(
-        "aui-md-h3 mt-2.5 mb-1 scroll-m-20 font-semibold text-sm first:mt-0 last:mb-0",
+        "aui-md-h3 mt-5 mb-2 scroll-m-20 text-sm font-semibold tracking-tight first:mt-0 last:mb-0",
         className,
       )}
       {...props}
@@ -129,7 +129,7 @@ const defaultComponents = memoizeMarkdownComponents({
   p: ({ className, ...props }) => (
     <p
       className={cn(
-        "aui-md-p my-2.5 leading-normal first:mt-0 last:mb-0",
+        "aui-md-p my-2.5 text-sm leading-relaxed first:mt-0 last:mb-0",
         className,
       )}
       {...props}
@@ -147,7 +147,7 @@ const defaultComponents = memoizeMarkdownComponents({
   blockquote: ({ className, ...props }) => (
     <blockquote
       className={cn(
-        "aui-md-blockquote my-2.5 border-muted-foreground/30 border-s-2 ps-3 text-muted-foreground italic",
+        "aui-md-blockquote my-3 rounded-lg border border-border/40 bg-muted/30 px-4 py-3 text-sm leading-relaxed not-italic [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 [&>p]:my-1",
         className,
       )}
       {...props}
@@ -173,7 +173,7 @@ const defaultComponents = memoizeMarkdownComponents({
   ),
   hr: ({ className, ...props }) => (
     <hr
-      className={cn("aui-md-hr my-2 border-muted-foreground/20", className)}
+      className={cn("aui-md-hr my-5 border-border/30", className)}
       {...props}
     />
   ),

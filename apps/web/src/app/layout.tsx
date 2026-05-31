@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Lora } from "next/font/google";
 
 import "../index.css";
 import Header from "@/components/header";
@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const lora = Lora({
+  variable: "--font-serif",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "synapse",
   description: "synapse",
@@ -29,7 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} antialiased`}>
         <Providers>
           <TooltipProvider>
             <div className="grid grid-rows-[auto_1fr] h-svh">

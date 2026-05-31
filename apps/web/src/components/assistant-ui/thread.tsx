@@ -210,6 +210,8 @@ const AssistantMessage: FC = () => {
               return ["group-chainOfThought", "group-reasoning"];
             if (part.type === "tool-call") {
               if (getMcpAppFromToolPart(part)) return null;
+              // Render generateReport outside the tool accordion
+              if (part.toolName === "generateReport") return null;
               return ["group-chainOfThought", "group-tool"];
             }
             return null;
