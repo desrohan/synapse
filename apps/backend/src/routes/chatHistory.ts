@@ -73,11 +73,18 @@ router.post('/threads/:id/messages', async (req: Request, res: Response) => {
     .maybeSingle();
 
   if (!existing) {
-    // Create thread
+    // Create thread — try to extract title from first user message content
+    let title = 'New Chat';
+    if (content && content.role === 'user' && Array.isArray(content.parts)) {
+      const textPart = content.parts.find((p: any) => p.type === 'text');
+      if (textPart?.text) {
+        title = textPart.text.substring(0, 100);
+      }
+    }
     const { error: createError } = await supabase.from('chat_threads').insert({
       id: threadId,
       user_id: userId,
-      title: 'New Chat',
+      title,
       head_id: headId || id,
     });
     if (createError) return res.status(500).json({ error: createError.message });

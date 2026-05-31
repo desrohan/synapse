@@ -45,11 +45,13 @@ function ChatRuntimeWrapper({
   userId,
   children,
   onThreadUpdate,
+  initialMessages,
 }: {
   threadId: string;
   userId: string;
   children: React.ReactNode;
   onThreadUpdate: () => void;
+  initialMessages?: any[];
 }) {
   const historyAdapter = useMemo(
     () => createSupabaseHistoryAdapter(threadId, userId),
@@ -68,6 +70,7 @@ function ChatRuntimeWrapper({
   const runtime = useChatRuntime({
     transport,
     adapters: { history: historyAdapter },
+    messages: initialMessages?.length ? initialMessages : undefined,
     onFinish: () => {
       onThreadUpdate();
     },
@@ -177,6 +180,8 @@ function ChatContent() {
     const t = searchParams.get("t");
     return t || crypto.randomUUID();
   });
+  const [initialMessages, setInitialMessages] = useState<any[]>([]);
+  const [messagesReady, setMessagesReady] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -208,8 +213,44 @@ function ChatContent() {
     fetchThreads();
   }, [fetchThreads]);
 
+  // Pre-load messages for the current thread so they're available before the runtime mounts
+  useEffect(() => {
+    let cancelled = false;
+    setMessagesReady(false);
+
+    const loadMessages = async () => {
+      if (!user) {
+        setInitialMessages([]);
+        setMessagesReady(true);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${BACKEND_URL}/api/chat/history/threads/${currentThreadId}?userId=${user.id}`
+        );
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          const msgs = (data.messages || [])
+            .filter((m: any) => m.content && m.content.role)
+            .map((m: any) => ({ id: m.id, ...m.content }));
+          setInitialMessages(msgs);
+        } else {
+          setInitialMessages([]);
+        }
+      } catch {
+        if (!cancelled) setInitialMessages([]);
+      } finally {
+        if (!cancelled) setMessagesReady(true);
+      }
+    };
+    loadMessages();
+    return () => { cancelled = true; };
+  }, [currentThreadId, user]);
+
   const handleNewThread = () => {
     const newId = crypto.randomUUID();
+    setInitialMessages([]);
     setCurrentThreadId(newId);
     router.push(`/chat?t=${newId}`, { scroll: false });
   };
@@ -272,11 +313,17 @@ function ChatContent() {
 
       {/* Chat area */}
       <div className="flex-1 h-full overflow-hidden">
+        {!messagesReady ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
         <ChatRuntimeWrapper
           key={currentThreadId}
           threadId={currentThreadId}
           userId={user.id}
           onThreadUpdate={fetchThreads}
+          initialMessages={initialMessages}
         >
           <JiraSearchToolUI />
           <JiraIssueToolUI />
@@ -292,6 +339,7 @@ function ChatContent() {
             </div>
           </div>
         </ChatRuntimeWrapper>
+        )}
       </div>
     </div>
   );
