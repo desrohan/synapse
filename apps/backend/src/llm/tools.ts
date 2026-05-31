@@ -109,7 +109,62 @@ Call this tool AFTER you have fetched all data from other tools. Pass the data o
         })).optional().describe('Per-channel activity summaries'),
       })),
       execute: async (data) => {
-        // Pass-through — the frontend renders this via a custom tool UI
+        // Ingest report data into the knowledge graph (fire-and-forget, non-blocking)
+        void (async () => {
+          try {
+            const nodes: GraphPayload['nodes'] = [];
+            const edges: GraphPayload['edges'] = [];
+            const now = new Date().toISOString();
+
+            const items = [
+              ...(data.actionItems || []).map((item: any) => ({ ...item, category: 'action_item' })),
+              ...(data.updates || []).map((item: any) => ({ ...item, category: 'update' })),
+            ];
+
+            for (const item of items) {
+              const source = (item.source || 'unknown').toLowerCase();
+              const externalId = item.permalink || `${source}:${item.title.toLowerCase().replace(/\s+/g, '-').slice(0, 80)}`;
+              const nodeType = source === 'jira' ? 'Ticket'
+                : source === 'github' ? 'GitHubEvent'
+                : 'Message';
+
+              nodes.push({
+                type: nodeType,
+                external_id: externalId,
+                properties: {
+                  title: item.title,
+                  description: item.description,
+                  source,
+                  category: item.category,
+                  permalink: item.permalink || null,
+                  last_seen: now,
+                },
+              });
+            }
+
+            for (const ch of data.channelSummaries || []) {
+              nodes.push({
+                type: 'Channel',
+                external_id: `slack:channel:${ch.name.toLowerCase()}`,
+                properties: {
+                  name: ch.name,
+                  summary: ch.summary,
+                  message_count: ch.messageCount || null,
+                  last_seen: now,
+                },
+              });
+            }
+
+            if (nodes.length > 0) {
+              await graphService.upsertGraph({ nodes, edges, userId });
+              console.log(`[graph] Ingested ${nodes.length} nodes from report "${data.title}"`);
+            }
+          } catch (err) {
+            console.error('[graph] Post-chat ingestion error:', err);
+          }
+        })();
+
+        // Return immediately for frontend rendering
         return data;
       },
     }),
