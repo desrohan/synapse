@@ -4,6 +4,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+let resolveBootstrap: () => void;
+export const mcpReady = new Promise<void>((resolve) => {
+  resolveBootstrap = resolve;
+});
+
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_KEY || ''
@@ -68,4 +73,7 @@ export async function bootstrapMCPServers() {
       console.error(`❌ Failed to connect ${provider} MCP for user ${user_id}:`, err.message);
     }
   }
+
+  resolveBootstrap();
+  console.log('MCP bootstrap complete — all servers ready.');
 }

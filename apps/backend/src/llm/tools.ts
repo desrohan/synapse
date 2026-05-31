@@ -159,6 +159,38 @@ Call this tool AFTER you have fetched all data from other tools. Pass the data o
               await graphService.upsertGraph({ nodes, edges, userId });
               console.log(`[graph] Ingested ${nodes.length} nodes from report "${data.title}"`);
             }
+
+            // Save the report to the reports table
+            const { error: reportError } = await supabase.from('reports').insert({
+              user_id: userId,
+              title: data.title,
+              subtitle: data.subtitle || null,
+              report_type: 'custom',
+              data,
+              generated_at: now,
+            });
+            if (reportError) {
+              console.error('[graph] Failed to save report:', reportError.message);
+            } else {
+              console.log(`[graph] Saved report "${data.title}" for user ${userId}`);
+            }
+
+            // Extract action items as todos
+            if (data.actionItems && data.actionItems.length > 0) {
+              const todos = data.actionItems.map((item: any) => ({
+                user_id: userId,
+                title: item.title,
+                description: item.description,
+                source: item.source || 'unknown',
+                source_permalink: item.permalink || null,
+                priority: 1,
+                status: 'pending',
+              }));
+              const { error: todoError } = await supabase.from('todos').insert(todos);
+              if (todoError) {
+                console.error('[graph] Failed to save todos:', todoError.message);
+              }
+            }
           } catch (err) {
             console.error('[graph] Post-chat ingestion error:', err);
           }

@@ -56,7 +56,7 @@ export async function getMCPToolsForUser(userId: string): Promise<Record<string,
       const result = await mcpManager.listTools(clientName);
 
       for (const mcpTool of result.tools) {
-        const safeName = `${provider}__${mcpTool.name.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const safeName = `${provider}_${mcpTool.name.replace(/[^a-zA-Z0-9_]/g, '_')}`;
         const inputSchema = mcpTool.inputSchema as any;
 
         // Build Zod schema from the MCP tool's JSON Schema

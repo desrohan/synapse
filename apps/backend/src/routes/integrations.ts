@@ -105,7 +105,9 @@ router.get('/slack/authorize', (req, res) => {
   // We use user_scope to get a user token (xoxp-) so Synapse can read ANY channel the user can read,
   // without needing the bot to be explicitly invited to every channel.
   const userScopes = 'channels:history,channels:read,groups:history,groups:read,mpim:history,mpim:read,im:history,im:read,users:read,search:read';
-  const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&state=${userId}&user_scope=${userScopes}`;
+  // Bot scope for incoming webhooks (to post proactive messages)
+  const botScopes = 'incoming-webhook,chat:write';
+  const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&state=${userId}&user_scope=${userScopes}&scope=${botScopes}`;
   res.redirect(slackAuthUrl);
 });
 
@@ -133,6 +135,9 @@ router.get('/slack/callback', async (req, res) => {
     const accessToken = tokenData.authed_user?.access_token || tokenData.access_token;
     const teamId = tokenData.team?.id;
     const slackUserId = tokenData.authed_user?.id;
+    // Incoming webhook URL for proactive messages (daily briefs, notifications)
+    const incomingWebhookUrl = tokenData.incoming_webhook?.url || null;
+    const incomingWebhookChannel = tokenData.incoming_webhook?.channel || null;
 
     // Resolve slack username via auth.test if possible
     let slackUsername = '';
@@ -153,7 +158,13 @@ router.get('/slack/callback', async (req, res) => {
       user_id: userId,
       provider: 'slack',
       access_token: accessToken,
-      metadata: { team_id: teamId, slack_user_id: slackUserId, slack_username: slackUsername },
+      metadata: {
+        team_id: teamId,
+        slack_user_id: slackUserId,
+        slack_username: slackUsername,
+        incoming_webhook_url: incomingWebhookUrl,
+        incoming_webhook_channel: incomingWebhookChannel,
+      },
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id, provider' });
 

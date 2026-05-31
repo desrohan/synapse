@@ -4,6 +4,7 @@ import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
 import { createUserTools } from '../llm/tools.js';
 import { getMCPToolsForUser } from '../llm/mcpMapper.js';
+import { mcpReady } from '../mcp/bootstrap.js';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
@@ -20,7 +21,7 @@ You have access to a Knowledge Graph database representing the user's workspace.
 
 When the user asks about their work, tickets, blockers, recent updates, feeds, or messages:
 1. ALWAYS use the 'searchGraph' tool first to query the database.
-2. If 'searchGraph' returns no matches or is insufficient, you MUST immediately call the live external tools (e.g. 'slack__get_slack_attention_feed' or 'slack__search_slack_messages') to get real-time workspace data.
+2. If 'searchGraph' returns no matches or is insufficient, you MUST immediately call the live external tools (e.g. 'slack_get_slack_attention_feed' or 'slack_search_slack_messages') to get real-time workspace data.
 3. NEVER write a text response to the user explaining that you found nothing in the Knowledge Graph.
 4. NEVER ask the user which channels, keywords, or types of messages to look for. You are FORBIDDEN from asking clarification questions about search parameters. Figure it out on your own by executing the live aggregate tools immediately.
 5. You MUST fetch all live data and perform your tool calls sequence before writing your final reply.
@@ -61,7 +62,7 @@ const supabase = createClient(
 );
 
 router.post('/', async (req: Request, res: Response) => {
-  const { messages, userId } = req.body;
+  const { messages, userId, threadId } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Messages array is required' });
@@ -71,7 +72,42 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'User ID is required' });
   }
 
+  // Auto-set thread title from first user message
+  if (threadId) {
+    try {
+      const { data: thread } = await supabase
+        .from('chat_threads')
+        .select('title')
+        .eq('id', threadId)
+        .maybeSingle();
+
+      if (thread && (thread.title === 'New Chat' || !thread.title)) {
+        const firstUserMsg = messages.find((m: any) => m.role === 'user');
+        if (firstUserMsg) {
+          let title = 'New Chat';
+          if (typeof firstUserMsg.content === 'string') {
+            title = firstUserMsg.content.substring(0, 100);
+          } else if (Array.isArray(firstUserMsg.content)) {
+            const textPart = firstUserMsg.content.find((p: any) => p.type === 'text');
+            if (textPart?.text) title = textPart.text.substring(0, 100);
+          }
+          if (title !== 'New Chat') {
+            await supabase
+              .from('chat_threads')
+              .update({ title, updated_at: new Date().toISOString() })
+              .eq('id', threadId);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auto-title error (non-fatal):', err);
+    }
+  }
+
   try {
+    // Wait for MCP servers to finish connecting before resolving tools
+    await mcpReady;
+
     const userTools = createUserTools(userId);
     const mcpTools = await getMCPToolsForUser(userId);
 

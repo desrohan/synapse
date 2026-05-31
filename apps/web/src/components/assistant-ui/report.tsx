@@ -18,7 +18,7 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface ReportItem {
+export interface ReportItem {
   title: string;
   description: string;
   source: string;
@@ -28,13 +28,13 @@ interface ReportItem {
   permalink?: string;
 }
 
-interface ChannelSummary {
+export interface ChannelSummary {
   name: string;
   messageCount?: number;
   summary: string;
 }
 
-interface ReportData {
+export interface ReportData {
   title: string;
   subtitle?: string;
   actionItems?: ReportItem[];
@@ -159,7 +159,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 // ─── Report Component ────────────────────────────────────────────────────────
 
-function Report({ data }: { data: ReportData }) {
+export function Report({ data }: { data: ReportData }) {
   const hasActions = data.actionItems && data.actionItems.length > 0;
   const hasUpdates = data.updates && data.updates.length > 0;
   const hasChannels = data.channelSummaries && data.channelSummaries.length > 0;

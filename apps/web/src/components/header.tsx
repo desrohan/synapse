@@ -182,16 +182,29 @@ export default function Header() {
         <div className="flex flex-1 items-center justify-end space-x-2">
           <nav className="flex items-center gap-1">
             {user && (
-              <Dialog>
-                <DialogTrigger className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
-                  <PlugIcon className="size-4" />
-                  Integrations
-                  {connectedApps.length > 0 && (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                      {connectedApps.length}
-                    </span>
-                  )}
-                </DialogTrigger>
+              <>
+                <Link
+                  href="/chat"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  Chat
+                </Link>
+                <Link
+                  href="/automations"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  Automations
+                </Link>
+                <Dialog>
+                  <DialogTrigger className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+                    <PlugIcon className="size-4" />
+                    Integrations
+                    {connectedApps.length > 0 && (
+                      <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                        {connectedApps.length}
+                      </span>
+                    )}
+                  </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>Integrations</DialogTitle>
@@ -213,6 +226,7 @@ export default function Header() {
                   </div>
                 </DialogContent>
               </Dialog>
+              </>
             )}
           </nav>
           <div className="mx-2 h-4 w-px bg-border" />
