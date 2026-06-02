@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { schedules } from '@trigger.dev/sdk';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -164,23 +165,59 @@ router.put('/schedules', async (req: Request, res: Response) => {
   const { userId, schedule_type, enabled, time_utc, day_of_week, timezone, delivery_channel } = req.body;
   if (!userId || !schedule_type) return res.status(400).json({ error: 'userId and schedule_type are required' });
 
-  const { data, error } = await supabase
-    .from('user_schedules')
-    .upsert({
-      user_id: userId,
-      schedule_type,
-      enabled: enabled ?? true,
-      time_utc: time_utc || '09:00',
-      day_of_week: day_of_week ?? null,
-      timezone: timezone || 'UTC',
-      delivery_channel: delivery_channel || 'slack',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id, schedule_type' })
-    .select()
-    .single();
+  // Convert time to cron format (HH:mm → MM HH * * *)
+  const [hours, minutes] = time_utc.split(':');
+  const cronExpression = `${minutes} ${hours} * * *`;
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ schedule: data });
+  try {
+    // Register/update schedule with Trigger.dev
+    if (enabled) {
+      await schedules.create({
+        task: "generate-scheduled-report",
+        cron: cronExpression,
+        externalId: `${userId}-${schedule_type}`,
+        deduplicationKey: `${userId}-${schedule_type}`,
+        timezone: timezone || 'UTC',
+      });
+    } else {
+      // Disable/delete the schedule
+      const activeSchedules = await schedules.list();
+      const existing = activeSchedules.data.find(s => s.externalId === `${userId}-${schedule_type}`);
+      if (existing) {
+        await schedules.del(existing.id);
+      }
+    }
+
+    // Save to database
+    const { data, error } = await supabase
+      .from('user_schedules')
+      .upsert({
+        user_id: userId,
+        schedule_type,
+        enabled: enabled ?? true,
+        time_utc: time_utc || '09:00',
+        day_of_week: day_of_week ?? null,
+        timezone: timezone || 'UTC',
+        delivery_channel: delivery_channel || 'slack',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id, schedule_type' })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    
+    res.json({ 
+      schedule: data,
+      cronExpression,
+      status: enabled ? 'scheduled' : 'disabled'
+    });
+  } catch (triggerError) {
+    console.error('Trigger.dev schedule error:', triggerError);
+    return res.status(500).json({ 
+      error: 'Failed to schedule with Trigger.dev',
+      triggerError: triggerError instanceof Error ? triggerError.message : triggerError 
+    });
+  }
 });
 
 export default router;

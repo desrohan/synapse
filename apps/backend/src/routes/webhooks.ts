@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { contextProcessor } from '../llm/gemini.js';
-import { graphService } from '../db/graph.js';
+import { tasks } from '@trigger.dev/sdk';
 
 const router = Router();
 
@@ -103,13 +102,14 @@ router.post('/github', async (req: Request, res: Response) => {
       };
     }
 
-    // Process with Gemini Structured Outputs
-    const graphData = await contextProcessor.extractEntities('github', scrubbedPayload);
-    
-    // Upsert into Supabase Graph
-    await graphService.upsertGraph(graphData);
+    // Trigger background processing via Trigger.dev (prevents cold start timeouts)
+    await tasks.trigger("process-webhook-task", {
+      source: 'github',
+      event_type: event,
+      payload: scrubbedPayload,
+    });
 
-    res.status(200).send('Processed');
+    res.status(200).send('Queued for processing');
   } catch (error) {
     console.error('GitHub Webhook Error:', error);
     res.status(500).send('Internal Server Error');
@@ -140,11 +140,17 @@ router.post('/slack', async (req: Request, res: Response) => {
         thread_ts: event.thread_ts
       };
 
-      const graphData = await contextProcessor.extractEntities('slack', scrubbedPayload);
-      await graphService.upsertGraph(graphData);
-    }
+      // Trigger background processing via Trigger.dev (prevents cold start timeouts)
+      await tasks.trigger("process-webhook-task", {
+        source: 'slack',
+        event_type: event.type,
+        payload: scrubbedPayload,
+      });
 
-    res.status(200).send('Processed');
+      res.status(200).send('Queued for processing');
+    } else {
+      res.status(200).send('No message to process');
+    }
   } catch (error) {
     console.error('Slack Webhook Error:', error);
     res.status(500).send('Internal Server Error');
@@ -185,10 +191,14 @@ router.post('/jira', async (req: Request, res: Response) => {
       };
     }
 
-    const graphData = await contextProcessor.extractEntities('jira', scrubbedPayload);
-    await graphService.upsertGraph(graphData);
+    // Trigger background processing via Trigger.dev (prevents cold start timeouts)
+    await tasks.trigger("process-webhook-task", {
+      source: 'jira',
+      event_type: webhookEvent,
+      payload: scrubbedPayload,
+    });
 
-    res.status(200).send('Processed');
+    res.status(200).send('Queued for processing');
   } catch (error) {
     console.error('Jira Webhook Error:', error);
     res.status(500).send('Internal Server Error');
