@@ -8,22 +8,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_KEY || ''
-);
-
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
-
-/**
- * Generates a scheduled report for a user at their configured time.
- * This task is triggered by Trigger.dev's scheduling system.
- */
 export const generateScheduledReport = schedules.task({
   id: "generate-scheduled-report",
   run: async (payload, { ctx }) => {
+    const supabase = createClient(
+      process.env.SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_KEY || ''
+    );
+
+    const google = createGoogleGenerativeAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
+
     if (!payload.externalId) {
       logger.error("No externalId provided in schedule payload");
       return { success: false, error: "No externalId provided" };

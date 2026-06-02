@@ -3,10 +3,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_KEY || ''
-);
+let supabaseClient: any = null;
+function getSupabase() {
+  if (!supabaseClient) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    if (!url || !key) {
+      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment');
+    }
+    supabaseClient = createClient(url, key);
+  }
+  return supabaseClient;
+}
 
 export interface GraphNode {
   type: string;
@@ -35,7 +43,7 @@ export class GraphService {
     const { userId } = payload;
 
     // 1. Upsert all nodes
-    const { error: nodeError } = await supabase
+    const { error: nodeError } = await getSupabase()
       .from('graph_nodes')
       .upsert(
         payload.nodes.map(node => ({
@@ -57,7 +65,7 @@ export class GraphService {
 
     // 2. Fetch the UUIDs of the nodes we just touched (to map edges)
     const externalIds = payload.nodes.map(n => n.external_id);
-    const { data: dbNodes, error: fetchError } = await supabase
+    const { data: dbNodes, error: fetchError } = await getSupabase()
       .from('graph_nodes')
       .select('id, type, external_id')
       .eq('user_id', userId)
@@ -69,7 +77,7 @@ export class GraphService {
     }
 
     const uuidMap = new Map<string, string>();
-    dbNodes.forEach(n => uuidMap.set(n.external_id, n.id));
+    dbNodes.forEach((n: any) => uuidMap.set(n.external_id, n.id));
 
     // 3. Prepare edges with real UUIDs
     const dbEdges = payload.edges.map(edge => {
@@ -94,7 +102,7 @@ export class GraphService {
     if (dbEdges.length === 0) return;
 
     // 4. Upsert all edges
-    const { error: edgeError } = await supabase
+    const { error: edgeError } = await getSupabase()
       .from('graph_edges')
       .upsert(dbEdges as any[], { onConflict: 'source_node_id,target_node_id,relation_type' });
 

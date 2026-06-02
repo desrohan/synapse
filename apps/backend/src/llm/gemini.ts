@@ -1,6 +1,16 @@
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+function getAI() {
+  if (!aiInstance) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error('GEMINI_API_KEY must be set in environment');
+    }
+    aiInstance = new GoogleGenAI({ apiKey: key });
+  }
+  return aiInstance;
+}
 
 const graphSchema: Schema = {
   type: Type.OBJECT,
@@ -46,7 +56,7 @@ ${JSON.stringify(payload)}
     `;
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await getAI().models.generateContent({
         model: 'gemini-2.5-pro',
         contents: prompt,
         config: {
@@ -63,7 +73,7 @@ ${JSON.stringify(payload)}
 
   async generateSummary(context: string) {
     const prompt = `Summarize the following work context. Focus on priorities, blockers, and recent updates.\n\nContext: ${context}`;
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
