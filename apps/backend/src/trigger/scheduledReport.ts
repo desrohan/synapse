@@ -25,7 +25,14 @@ export const generateScheduledReport = schedules.task({
       return { success: false, error: "No externalId provided" };
     }
 
-    const [userId, scheduleType] = payload.externalId.split('-');
+    const lastDashIndex = payload.externalId.lastIndexOf('-');
+    if (lastDashIndex === -1) {
+      logger.error("Invalid externalId format", { externalId: payload.externalId });
+      return { success: false, error: "Invalid externalId format" };
+    }
+    const userId = payload.externalId.slice(0, lastDashIndex);
+    const scheduleType = payload.externalId.slice(lastDashIndex + 1);
+
     if (!userId || !scheduleType || (scheduleType !== 'daily' && scheduleType !== 'weekly')) {
       logger.error("Invalid externalId format", { externalId: payload.externalId });
       return { success: false, error: "Invalid externalId format" };
