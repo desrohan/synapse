@@ -170,8 +170,20 @@ router.put('/schedules', async (req: Request, res: Response) => {
   const cronExpression = `${minutes} ${hours} * * *`;
 
   try {
+    // Resolve whether schedule should be enabled (check DB if enabled is not passed in the request)
+    let finalEnabled = enabled;
+    if (enabled === undefined) {
+      const { data: existing } = await supabase
+        .from('user_schedules')
+        .select('enabled')
+        .eq('user_id', userId)
+        .eq('schedule_type', schedule_type)
+        .maybeSingle();
+      finalEnabled = existing?.enabled ?? true;
+    }
+
     // Register/update schedule with Trigger.dev
-    if (enabled) {
+    if (finalEnabled) {
       await schedules.create({
         task: "generate-scheduled-report",
         cron: cronExpression,
@@ -194,7 +206,7 @@ router.put('/schedules', async (req: Request, res: Response) => {
       .upsert({
         user_id: userId,
         schedule_type,
-        enabled: enabled ?? true,
+        enabled: finalEnabled,
         time_utc: time_utc || '09:00',
         day_of_week: day_of_week ?? null,
         timezone: timezone || 'UTC',
@@ -209,7 +221,7 @@ router.put('/schedules', async (req: Request, res: Response) => {
     res.json({ 
       schedule: data,
       cronExpression,
-      status: enabled ? 'scheduled' : 'disabled'
+      status: finalEnabled ? 'scheduled' : 'disabled'
     });
   } catch (triggerError) {
     console.error('Trigger.dev schedule error:', triggerError);
@@ -217,6 +229,48 @@ router.put('/schedules', async (req: Request, res: Response) => {
       error: 'Failed to schedule with Trigger.dev',
       triggerError: triggerError instanceof Error ? triggerError.message : triggerError 
     });
+  }
+});
+
+let cachedTimezones: { value: string; label: string; offset: string }[] | null = null;
+
+// Get available timezones from Trigger.dev
+router.get('/timezones', async (req: Request, res: Response) => {
+  if (cachedTimezones) {
+    return res.json({ timezones: cachedTimezones });
+  }
+
+  try {
+    const { timezones } = await schedules.timezones();
+    
+    const mapped = timezones.map(tz => {
+      let offsetStr = 'GMT+00:00';
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          timeZoneName: 'longOffset'
+        }).formatToParts(new Date());
+        const tzPart = parts.find(p => p.type === 'timeZoneName');
+        if (tzPart) {
+          offsetStr = tzPart.value;
+        }
+      } catch (err) {
+        // Fallback
+      }
+      return {
+        value: tz,
+        label: `${tz} (${offsetStr})`,
+        offset: offsetStr
+      };
+    });
+
+    mapped.sort((a, b) => a.value.localeCompare(b.value));
+
+    cachedTimezones = mapped;
+    res.json({ timezones: mapped });
+  } catch (error) {
+    console.error('Failed to fetch Trigger.dev timezones:', error);
+    res.status(500).json({ error: 'Failed to fetch timezones from Trigger.dev' });
   }
 });
 

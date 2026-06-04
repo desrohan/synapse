@@ -50,3 +50,4 @@ app.listen(port, async () => {
   console.log(`Synapse backend listening on port ${port}`);
   await bootstrapMCPServers();
 });
+// reload comment to restart watcher

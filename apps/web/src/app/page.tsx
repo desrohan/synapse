@@ -17,6 +17,7 @@ import {
   XIcon,
   Loader2Icon,
   GlobeIcon,
+  ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +33,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Report as ReportView } from "@/components/assistant-ui/report";
 
 const BACKEND_URL =
@@ -138,6 +144,7 @@ function Dashboard({ userId }: { userId: string }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [timezones, setTimezones] = useState<{ value: string; label: string; offset: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
 
@@ -153,21 +160,34 @@ function Dashboard({ userId }: { userId: string }) {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [todosRes, reportsRes, schedulesRes] = await Promise.all([
+      const [todosRes, reportsRes, schedulesRes, timezonesRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/dashboard/todos?userId=${userId}&limit=15&offset=0`),
         fetch(`${BACKEND_URL}/api/dashboard/reports?userId=${userId}&limit=8&offset=0`),
         fetch(`${BACKEND_URL}/api/dashboard/schedules?userId=${userId}`),
+        fetch(`${BACKEND_URL}/api/dashboard/timezones`).catch(() => null),
       ]);
+
       const [todosData, reportsData, schedulesData] = await Promise.all([
         todosRes.json(),
         reportsRes.json(),
         schedulesRes.json(),
       ]);
+
+      let timezonesData = { timezones: [] };
+      if (timezonesRes && timezonesRes.ok) {
+        try {
+          timezonesData = await timezonesRes.json();
+        } catch (e) {
+          console.error("Failed to parse timezones JSON:", e);
+        }
+      }
+
       setTodos(todosData.todos || []);
       setTodosHasMore(todosData.hasMore ?? false);
       setReports(reportsData.reports || []);
       setReportsHasMore(reportsData.hasMore ?? false);
       setSchedules(schedulesData.schedules || []);
+      setTimezones(timezonesData.timezones || []);
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
     } finally {
@@ -457,12 +477,14 @@ function Dashboard({ userId }: { userId: string }) {
                 label="Daily Brief"
                 type="daily"
                 schedule={schedules.find((s) => s.schedule_type === "daily")}
+                timezones={timezones}
                 onUpdate={(updates) => updateSchedule("daily", updates)}
               />
               <ScheduleCard
                 label="Weekly Recap"
                 type="weekly"
                 schedule={schedules.find((s) => s.schedule_type === "weekly")}
+                timezones={timezones}
                 onUpdate={(updates) => updateSchedule("weekly", updates)}
               />
             </div>
@@ -535,28 +557,48 @@ function ScheduleCard({
   label,
   type,
   schedule,
+  timezones,
   onUpdate,
 }: {
   label: string;
   type: "daily" | "weekly";
   schedule: Schedule | undefined;
+  timezones: { value: string; label: string; offset: string }[];
   onUpdate: (updates: Partial<Schedule>) => void;
 }) {
   const enabled = schedule?.enabled ?? false;
   const [time, setTime] = useState(schedule?.time_utc || "09:00");
-  const [timezone, setTimezone] = useState(
-    schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-  );
+  const [timezone, setTimezone] = useState("UTC");
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const getMappedTimezone = (tz: string) => {
+    if (!tz) return "UTC";
+    if (timezones.some(t => t.value === tz)) return tz;
+    // Map common legacy/modern variants for Trigger.dev compatibility
+    if (tz === "Asia/Kolkata") return "Asia/Calcutta";
+    if (tz === "Asia/Kathmandu") return "Asia/Katmandu";
+    if (tz === "Asia/Yangon") return "Asia/Rangoon";
+    if (tz === "Europe/Kyiv") return "Europe/Kiev";
+    return tz;
+  };
 
   useEffect(() => {
     if (schedule?.time_utc) setTime(schedule.time_utc);
-    if (schedule?.timezone) setTimezone(schedule.timezone);
-  }, [schedule?.time_utc, schedule?.timezone]);
+  }, [schedule?.time_utc]);
+
+  useEffect(() => {
+    if (schedule?.timezone) {
+      setTimezone(getMappedTimezone(schedule.timezone));
+    } else if (timezones.length > 0) {
+      setTimezone(getMappedTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone));
+    }
+  }, [schedule?.timezone, timezones]);
 
   const save = (overrides: { time_utc?: string; timezone?: string } = {}) => {
     const finalTime = overrides.time_utc ?? time;
     const finalTz = overrides.timezone ?? timezone;
-    onUpdate({ time_utc: finalTime, timezone: finalTz });
+    onUpdate({ enabled, time_utc: finalTime, timezone: finalTz });
   };
 
   const handleTimeChange = (newTime: string) => {
@@ -567,24 +609,39 @@ function ScheduleCard({
   };
 
   const handleTimezoneChange = (tz: string) => {
-    setTimezone(tz);
-    save({ timezone: tz });
+    const mappedTz = getMappedTimezone(tz);
+    setTimezone(mappedTz);
+    save({ timezone: mappedTz });
   };
 
   const formatLocalTime = () => {
     try {
       const [h, m] = time.split(":");
       const now = new Date();
-      now.setUTCHours(parseInt(h), parseInt(m), 0, 0);
-      return now.toLocaleTimeString([], {
+      
+      // Find the difference between the target timezone and the browser's local timezone
+      const tzDate = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
+      const localDate = new Date(now.toLocaleString("en-US"));
+      const diffMs = tzDate.getTime() - localDate.getTime();
+      
+      // Calculate the local time representation of the scheduled time
+      const scheduledTzDate = new Date(now);
+      scheduledTzDate.setHours(parseInt(h), parseInt(m), 0, 0);
+      
+      const scheduledLocalDate = new Date(scheduledTzDate.getTime() - diffMs);
+      
+      return scheduledLocalDate.toLocaleTimeString([], {
         hour: "numeric",
         minute: "2-digit",
-        timeZone: timezone,
       });
     } catch {
       return time;
     }
   };
+
+  const filteredTimezones = (timezones.length > 0 ? timezones : FALLBACK_TIMEZONES).filter((tz) =>
+    tz.label.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="rounded-lg border p-3">
@@ -623,18 +680,68 @@ function ScheduleCard({
           </div>
           <div className="flex items-center gap-2">
             <GlobeIcon className="size-3.5 text-muted-foreground" />
-            <Select value={timezone} onValueChange={(v) => v && handleTimezoneChange(v)}>
-              <SelectTrigger className="h-8 flex-1 text-xs">
-                <SelectValue placeholder="Select timezone" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[200px]">
-                {COMMON_TIMEZONES.map((tz) => (
-                  <SelectItem key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger
+                className="flex h-8 flex-1 items-center justify-between gap-1.5 rounded-3xl border border-border bg-input/50 px-3 py-2 text-xs whitespace-nowrap transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 text-foreground cursor-pointer"
+              >
+                <span className="truncate">
+                  {timezones.find((tz) => tz.value === timezone)?.label || timezone}
+                </span>
+                <ChevronsUpDown className="pointer-events-none size-3 text-muted-foreground shrink-0" />
+              </PopoverTrigger>
+              <PopoverContent
+                className="z-50 flex w-[280px] flex-col gap-2 rounded-3xl bg-popover p-2 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-hidden duration-100 dark:ring-foreground/10"
+                align="start"
+                side="bottom"
+                sideOffset={4}
+              >
+                <div className="flex flex-col h-[280px]">
+                  <div className="border-b border-border/40 pb-2 mb-1 px-1">
+                    <input
+                      type="text"
+                      placeholder="Search timezone..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full bg-input/40 px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/20 border border-border/30 rounded-2xl text-foreground placeholder:text-muted-foreground/60"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                    {filteredTimezones.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        No timezone found
+                      </div>
+                    ) : (
+                      filteredTimezones.map((tz) => {
+                        const isSelected = tz.value === timezone;
+                        return (
+                          <button
+                            key={tz.value}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTimezoneChange(tz.value);
+                              setOpen(false);
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-2xl text-xs transition-colors flex items-center justify-between cursor-pointer select-none",
+                              isSelected
+                                ? "bg-primary text-primary-foreground font-medium"
+                                : "hover:bg-accent hover:text-accent-foreground text-foreground"
+                            )}
+                          >
+                            <span className="truncate mr-2">{tz.label}</span>
+                            {isSelected && (
+                              <CheckCircle2Icon className="size-3.5 shrink-0 text-current" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <p className="text-[10px] text-muted-foreground/60">
             Delivers at {formatLocalTime()} local time
@@ -645,21 +752,21 @@ function ScheduleCard({
   );
 }
 
-const COMMON_TIMEZONES = [
-  { value: "America/New_York", label: "Eastern (New York)" },
-  { value: "America/Chicago", label: "Central (Chicago)" },
-  { value: "America/Denver", label: "Mountain (Denver)" },
-  { value: "America/Los_Angeles", label: "Pacific (Los Angeles)" },
-  { value: "America/Sao_Paulo", label: "São Paulo" },
-  { value: "Europe/London", label: "London (GMT)" },
-  { value: "Europe/Paris", label: "Paris (CET)" },
-  { value: "Europe/Berlin", label: "Berlin (CET)" },
-  { value: "Asia/Dubai", label: "Dubai (GST)" },
-  { value: "Asia/Kolkata", label: "India (IST)" },
-  { value: "Asia/Shanghai", label: "China (CST)" },
-  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
-  { value: "Asia/Singapore", label: "Singapore (SGT)" },
-  { value: "Australia/Sydney", label: "Sydney (AEST)" },
-  { value: "Pacific/Auckland", label: "Auckland (NZST)" },
-  { value: "UTC", label: "UTC" },
+const FALLBACK_TIMEZONES = [
+  { value: "America/New_York", label: "America/New_York (GMT-04:00)", offset: "GMT-04:00" },
+  { value: "America/Chicago", label: "America/Chicago (GMT-05:00)", offset: "GMT-05:00" },
+  { value: "America/Denver", label: "America/Denver (GMT-06:00)", offset: "GMT-06:00" },
+  { value: "America/Los_Angeles", label: "America/Los_Angeles (GMT-07:00)", offset: "GMT-07:00" },
+  { value: "America/Sao_Paulo", label: "America/Sao_Paulo (GMT-03:00)", offset: "GMT-03:00" },
+  { value: "Europe/London", label: "Europe/London (GMT+01:00)", offset: "GMT+01:00" },
+  { value: "Europe/Paris", label: "Europe/Paris (GMT+02:00)", offset: "GMT+02:00" },
+  { value: "Europe/Berlin", label: "Europe/Berlin (GMT+02:00)", offset: "GMT+02:00" },
+  { value: "Asia/Dubai", label: "Asia/Dubai (GMT+04:00)", offset: "GMT+04:00" },
+  { value: "Asia/Calcutta", label: "Asia/Calcutta (GMT+05:30)", offset: "GMT+05:30" },
+  { value: "Asia/Shanghai", label: "Asia/Shanghai (GMT+08:00)", offset: "GMT+08:00" },
+  { value: "Asia/Tokyo", label: "Asia/Tokyo (GMT+09:00)", offset: "GMT+09:00" },
+  { value: "Asia/Singapore", label: "Asia/Singapore (GMT+08:00)", offset: "GMT+08:00" },
+  { value: "Australia/Sydney", label: "Australia/Sydney (GMT+10:00)", offset: "GMT+10:00" },
+  { value: "Pacific/Auckland", label: "Pacific/Auckland (GMT+12:00)", offset: "GMT+12:00" },
+  { value: "UTC", label: "UTC (GMT+00:00)", offset: "GMT+00:00" },
 ];
