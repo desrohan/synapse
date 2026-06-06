@@ -196,18 +196,20 @@ function ChatContent() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const userId = user?.id;
+
   const fetchThreads = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     try {
       const res = await fetch(
-        `${BACKEND_URL}/api/chat/history/threads?userId=${user.id}`
+        `${BACKEND_URL}/api/chat/history/threads?userId=${userId}`
       );
       const data = await res.json();
       setThreads(data.threads || []);
     } catch (err) {
       console.error("Failed to fetch threads:", err);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     fetchThreads();
@@ -219,14 +221,14 @@ function ChatContent() {
     setMessagesReady(false);
 
     const loadMessages = async () => {
-      if (!user) {
+      if (!userId) {
         setInitialMessages([]);
         setMessagesReady(true);
         return;
       }
       try {
         const res = await fetch(
-          `${BACKEND_URL}/api/chat/history/threads/${currentThreadId}?userId=${user.id}`
+          `${BACKEND_URL}/api/chat/history/threads/${currentThreadId}?userId=${userId}`
         );
         if (cancelled) return;
         if (res.ok) {
@@ -246,7 +248,7 @@ function ChatContent() {
     };
     loadMessages();
     return () => { cancelled = true; };
-  }, [currentThreadId, user]);
+  }, [currentThreadId, userId]);
 
   const handleNewThread = () => {
     const newId = crypto.randomUUID();
