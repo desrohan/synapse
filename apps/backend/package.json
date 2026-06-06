@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.79",
+    "@ai-sdk/groq": "^3.0.39",
     "@google/genai": "^2.6.0",
     "@modelcontextprotocol/sdk": "latest",
     "@supabase/supabase-js": "^2.106.1",

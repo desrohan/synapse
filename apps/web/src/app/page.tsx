@@ -440,10 +440,7 @@ function Dashboard({ userId }: { userId: string }) {
                           {report.title}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {report.subtitle ||
-                            new Date(
-                              report.generated_at
-                            ).toLocaleDateString()}
+                          {formatReportSubtitle(report.subtitle, report.generated_at, report.report_type)}
                         </p>
                       </div>
                       <span className="hidden sm:inline rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase">
@@ -535,8 +532,7 @@ function Dashboard({ userId }: { userId: string }) {
                 {selectedReport?.report_type}
               </span>
               <span className="text-xs text-muted-foreground">
-                {selectedReport &&
-                  new Date(selectedReport.generated_at).toLocaleString()}
+                {selectedReport && formatReportGeneratedAt(selectedReport.generated_at)}
               </span>
             </div>
           </SheetHeader>
@@ -770,3 +766,67 @@ const FALLBACK_TIMEZONES = [
   { value: "Pacific/Auckland", label: "Pacific/Auckland (GMT+12:00)", offset: "GMT+12:00" },
   { value: "UTC", label: "UTC (GMT+00:00)", offset: "GMT+00:00" },
 ];
+
+const formatReportGeneratedAt = (generatedAt: string) => {
+  try {
+    const d = new Date(generatedAt);
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const hoursStr = hours.toString().padStart(2, '0');
+    const timeStr = `${hoursStr}:${minutes} ${ampm}`;
+    
+    return `${dateStr} at ${timeStr}`;
+  } catch (err) {
+    return generatedAt;
+  }
+};
+
+const formatReportSubtitle = (subtitle: string | null, generatedAt: string, reportType: string) => {
+  try {
+    let timeRange = '';
+    if (subtitle) {
+      const parts = subtitle.split(" · ");
+      if (parts.length > 1) {
+        const lastPart = parts[parts.length - 1];
+        if (/\b\d{4}\b/.test(lastPart)) {
+          // Remove the last part (it contains a 4-digit year, so it's probably a date)
+          timeRange = parts.slice(0, parts.length - 1).join(" · ");
+        } else {
+          timeRange = subtitle;
+        }
+      } else {
+        timeRange = subtitle;
+      }
+    } else {
+      timeRange = reportType === 'weekly' ? 'Last 7 days' : 'Last 24 hours';
+    }
+    
+    const d = new Date(generatedAt);
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const hoursStr = hours.toString().padStart(2, '0');
+    const timeStr = `${hoursStr}:${minutes} ${ampm}`;
+    
+    return `${timeRange} · ${dateStr}, ${timeStr}`;
+  } catch (err) {
+    return subtitle || '';
+  }
+};

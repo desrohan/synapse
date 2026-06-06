@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText } from 'ai';
+import { generateText, stepCountIs } from 'ai';
 import { getMCPToolsForUser } from '../llm/mcpMapper.js';
 import { createUserTools } from '../llm/tools.js';
+import { bootstrapMCPServersForUser } from '../mcp/bootstrap.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -66,16 +67,27 @@ async function generateAndDeliverReport(schedule: any) {
   const { user_id, schedule_type } = schedule;
   const hoursBack = schedule_type === 'weekly' ? 168 : 24;
 
+  // Bootstrap MCP servers for the user before loading tools
+  await bootstrapMCPServersForUser(user_id);
+
   // Get the user's connected tools
   const userTools = createUserTools(user_id);
   const mcpTools = await getMCPToolsForUser(user_id);
 
   const systemPrompt = `You are Synapse, generating a scheduled ${schedule_type} report.
-Gather workspace data from the last ${hoursBack} hours using the available tools.
-Then call the generateReport tool with the structured data.
-Title it "${schedule_type === 'weekly' ? 'Weekly Recap' : 'Daily Brief'}".
-Include action items, updates, and channel summaries as appropriate.
-Be thorough but concise.`;
+You MUST strictly follow this execution plan:
+1. Fetch Slack messages from the last ${hoursBack} hours by calling 'slack_get_slack_attention_feed' (using hours: ${hoursBack}).
+2. Fetch Jira issues by calling 'jira_search_issues' with JQL for the user's assigned issues (e.g., "assignee = currentUser()").
+3. (Optional) Query 'searchGraph' to supplement the report with stored memory.
+4. Finally, call the 'generateReport' tool with the structured data compiled from the actual outputs of your Slack/Jira tool calls.
+
+CRITICAL RULES:
+- You MUST execute the data gathering tools ('slack_get_slack_attention_feed', 'jira_search_issues', 'searchGraph') first. 
+- You are FORBIDDEN from calling 'generateReport' in the same step/in parallel with the data gathering tools. You MUST only call 'generateReport' in a subsequent step after you have received the data from Slack and Jira.
+- You MUST ALWAYS call the 'generateReport' tool to present the report data. You are FORBIDDEN from writing markdown bullet lists, tables, or paragraphs containing Slack messages or Jira issues as raw text. If you write workspace data as raw text, you have FAILED your task.
+- You are strictly forbidden from fabricating placeholder or mock report data. If the tools return no messages or issues, leave the sections empty, but you must actually call the tools first to verify this.
+- DO NOT show user IDs (e.g. U08061MT00K) or channel IDs (e.g. C08061MT00K) in the generated report output (titles, descriptions, summaries, etc.). Only the names of users, groups, and channels should be shown. Resolve formatting like <@U08061MT00K|Rohan Shah> to just "Rohan Shah" and channel IDs to their display names.
+- DO NOT write any code, scripts, programs, or regular expressions (such as Python blocks) to process or clean the data. All text cleaning, ID resolving, and formatting must be done internally in your reasoning, and the final cleaned text must be passed directly as arguments to the 'generateReport' tool call.`;
 
   // Use generateText (non-streaming) to run the full multi-step tool pipeline
   const result = await generateText({
@@ -83,7 +95,14 @@ Be thorough but concise.`;
     system: systemPrompt,
     messages: [{ role: 'user', content: `Generate my ${schedule_type} report.` }],
     tools: { ...userTools, ...mcpTools },
-    maxSteps: 10,
+    stopWhen: stepCountIs(10),
+    providerOptions: {
+      google: {
+        thinkingConfig: {
+          thinkingBudget: 4096,
+        },
+      },
+    },
   } as any);
 
   // Extract the generateReport tool call result
@@ -96,7 +115,7 @@ Be thorough but concise.`;
     return;
   }
 
-  const reportData = (reportToolCall as any).args;
+  const reportData = (reportToolCall as any).input || (reportToolCall as any).args;
 
   // Save to reports table
   await supabase.from('reports').insert({
@@ -120,10 +139,18 @@ Be thorough but concise.`;
       status: 'pending',
     }));
 
-    await supabase.from('todos').upsert(todos, {
-      onConflict: 'user_id, title',
-      ignoreDuplicates: true,
-    });
+    // Filter out duplicates in memory to avoid DB constraint issues
+    const { data: existingTodos } = await supabase
+      .from('todos')
+      .select('title')
+      .eq('user_id', user_id);
+
+    const existingTitles = new Set(existingTodos?.map((t: any) => t.title.toLowerCase().trim()) || []);
+    const uniqueTodos = todos.filter((t: any) => !existingTitles.has(t.title.toLowerCase().trim()));
+
+    if (uniqueTodos.length > 0) {
+      await supabase.from('todos').insert(uniqueTodos);
+    }
   }
 
   // Deliver via configured channel

@@ -65,7 +65,7 @@ Action items are RARE and HIGH-SIGNAL. Most things are updates. Apply these rule
 Guidelines:
 - Consolidate related messages into single items
 - Write concise headlines and short descriptions — do NOT quote raw messages
-- Resolve user IDs to real names
+- DO NOT show user IDs (e.g. U08061MT00K) or channel IDs (e.g. C08061MT00K) in the output. Only the names of users, groups, and channels should be shown. Resolve formatting like <@U08061MT00K|Rohan Shah> to just "Rohan Shah" and channel IDs to their display names.
 - Skip empty sections
 - Include permalinks when available
 
